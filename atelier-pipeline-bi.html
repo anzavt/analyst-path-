@@ -1,0 +1,601 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+</head>
+<body>
+<title>Atelier Pipeline BI</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<style>
+/* Layout: page de texte sobre, une colonne de phases à gauche, contenu à droite. Pas de cartes, des filets fins. */
+:root{
+  --bg:#FFFFFF; --ink:#1A1A1A; --muted:#6B6B6B; --line:#E4E4E4; --soft:#F6F6F6; --link:#1F4FA8; --done:#2F6B45; --due:#9A5B12;
+  --f:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+  --m:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--bg:#161616;--ink:#E8E8E8;--muted:#9A9A9A;--line:#2C2C2C;--soft:#1E1E1E;--link:#8EB0F0;--done:#7CC296;--due:#E0A35A;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#161616;--ink:#E8E8E8;--muted:#9A9A9A;--line:#2C2C2C;--soft:#1E1E1E;--link:#8EB0F0;--done:#7CC296;--due:#E0A35A;color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font:15px/1.6 var(--f)}
+.wrap{max-width:1040px;margin:0 auto;padding-block:28px 72px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+h1,h2,h3{margin:0;font-weight:600;line-height:1.3;text-wrap:balance}
+h1{font-size:1.6rem}
+h2{font-size:1.2rem}
+h3{font-size:1rem}
+p{margin:0}
+a{color:var(--link);text-underline-offset:2px}
+a:focus-visible,button:focus-visible,input:focus-visible,label:focus-within{outline:2px solid var(--link);outline-offset:2px}
+.muted{color:var(--muted)}
+.small{font-size:.875rem}
+.num{font-variant-numeric:tabular-nums}
+header{display:flex;flex-direction:column;gap:6px;padding-bottom:18px;border-bottom:1px solid var(--line)}
+header p{max-width:65ch}
+.summary{display:flex;flex-wrap:wrap;gap:4px 18px;font-size:.9rem;color:var(--muted);margin-top:6px}
+.summary b{color:var(--ink);font-weight:600}
+.summary .due b{color:var(--due)}
+.progress{height:3px;background:var(--line);margin-top:10px;max-width:420px}
+.progress span{display:block;height:100%;background:var(--ink)}
+.next{margin-top:14px;font-size:.95rem}
+.linkbtn{appearance:none;background:none;border:0;padding:0;font:inherit;color:var(--link);text-decoration:underline;text-underline-offset:2px;cursor:pointer}
+nav.tabs{display:flex;gap:22px;border-bottom:1px solid var(--line);overflow-x:auto;margin-top:6px}
+nav.tabs button{appearance:none;background:none;border:0;border-bottom:2px solid transparent;padding:12px 0 10px;font:500 .92rem var(--f);color:var(--muted);cursor:pointer;white-space:nowrap}
+nav.tabs button[aria-selected="true"]{color:var(--ink);border-bottom-color:var(--ink)}
+nav.tabs .n{color:var(--due);margin-left:4px}
+main{padding-top:24px}
+/* parcours */
+.cols{display:grid;grid-template-columns:200px minmax(0,1fr);gap:40px;align-items:start}
+.phases{list-style:none;margin:0;padding:0;position:sticky;top:calc(env(safe-area-inset-top,0px) + 16px)}
+.phases button{appearance:none;background:none;border:0;width:100%;text-align:left;font:inherit;color:var(--muted);padding:6px 0;cursor:pointer;display:flex;justify-content:space-between;gap:10px}
+.phases button:hover{color:var(--ink)}
+.phases button[aria-current="true"]{color:var(--ink);font-weight:600}
+.phases .pc{font-size:.82rem}
+.phases .ok .pc{color:var(--done)}
+@media (max-width:760px){
+  .cols{grid-template-columns:minmax(0,1fr);gap:20px}
+  .phases{position:static;display:flex;gap:16px;overflow-x:auto;border-bottom:1px solid var(--line);padding-bottom:6px}
+  .phases button{width:auto;white-space:nowrap}
+}
+.ph-head{display:flex;flex-direction:column;gap:6px;margin-bottom:18px}
+.ph-head .meta{font-size:.85rem;color:var(--muted)}
+.ph-head p{max-width:65ch}
+.lessons{list-style:none;margin:0;padding:0;border-top:1px solid var(--line)}
+.lesson{border-bottom:1px solid var(--line);padding:12px 0}
+.lrow{display:grid;grid-template-columns:22px minmax(0,1fr) auto;gap:10px;align-items:start}
+.lrow label{font-weight:600;cursor:pointer}
+.lrow .why{color:var(--muted);font-size:.92rem;margin-top:2px}
+.lrow .rv{font-size:.8rem;color:var(--muted);margin-top:2px}
+.lesson.done label{color:var(--muted);font-weight:500}
+input[type=checkbox]{width:16px;height:16px;margin:4px 0 0;accent-color:var(--ink);cursor:pointer}
+.detail{margin:10px 0 2px 32px;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:24px;font-size:.92rem}
+@media (max-width:640px){.detail{grid-template-columns:minmax(0,1fr);margin-left:0}}
+.detail h4{margin:0 0 6px;font-size:.82rem;font-weight:600;color:var(--muted)}
+.detail ul,.detail ol{margin:0;padding-left:18px;display:flex;flex-direction:column;gap:4px}
+.detail .kind{color:var(--muted)}
+.detail a{overflow-wrap:anywhere}
+.detail .note{margin-top:10px;color:var(--muted);border-left:2px solid var(--line);padding-left:10px}
+.project{margin-top:28px;padding-top:16px;border-top:2px solid var(--ink);display:flex;flex-direction:column;gap:10px}
+.project .meta{font-size:.85rem;color:var(--muted)}
+.checks{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px}
+.checks label{display:grid;grid-template-columns:22px minmax(0,1fr);gap:10px;cursor:pointer}
+.checks .on{color:var(--muted);text-decoration:line-through}
+.field{display:flex;flex-direction:column;gap:4px;max-width:480px}
+.field label{font-size:.85rem;color:var(--muted)}
+input[type=url],input[type=text],input[type=date],input[type=number]{font:inherit;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:3px;padding:6px 8px;width:100%}
+.btn{appearance:none;font:500 .9rem var(--f);border:1px solid var(--ink);border-radius:3px;padding:6px 12px;background:var(--ink);color:var(--bg);cursor:pointer}
+.btn.alt{background:transparent;color:var(--ink);border-color:var(--line)}
+.row{display:flex;gap:12px;flex-wrap:wrap;align-items:center}
+/* listes génériques */
+.intro{max-width:65ch;color:var(--muted);margin-bottom:18px}
+.list{list-style:none;margin:0;padding:0;border-top:1px solid var(--line)}
+.list > li{border-bottom:1px solid var(--line);padding:14px 0;display:flex;flex-direction:column;gap:4px}
+.list .meta{font-size:.85rem;color:var(--muted)}
+.list ol{margin:4px 0 0;padding-left:18px}
+.status{font-size:.85rem}
+.status.ok{color:var(--done)}
+table{border-collapse:collapse;width:100%;font-size:.92rem}
+.tw{overflow-x:auto}
+th,td{text-align:left;padding:9px 12px 9px 0;border-bottom:1px solid var(--line);vertical-align:top}
+th{font-weight:600;color:var(--muted);font-size:.85rem}
+td.del{text-align:right;padding-right:0}
+.x{appearance:none;background:none;border:0;color:var(--muted);cursor:pointer;font:inherit}
+.logform{display:grid;grid-template-columns:150px 100px minmax(0,1fr) auto;gap:10px;align-items:end;margin-bottom:22px}
+@media (max-width:640px){.logform{grid-template-columns:1fr 1fr}.logform .wide{grid-column:1/-1}}
+.weeks{display:flex;gap:3px;margin:6px 0 4px}
+.weeks span{width:12px;height:12px;background:var(--soft);border:1px solid var(--line)}
+.weeks span.l1{background:color-mix(in srgb,var(--ink) 25%,var(--bg))}
+.weeks span.l2{background:color-mix(in srgb,var(--ink) 55%,var(--bg))}
+.weeks span.l3{background:var(--ink)}
+.sync{font-size:.82rem;color:var(--muted)}
+@media (prefers-reduced-motion:reduce){*{scroll-behavior:auto!important}}
+</style>
+
+<div class="wrap" id="app">
+  <header>
+    <h1>Atelier Pipeline BI</h1>
+    <p class="muted">SQL Server, SSIS, Power BI et DAX en profondeur, avec Python, tests et CI/CD. Chaque phase : des leçons, puis un projet dans le même dépôt.</p>
+    <div id="stats"></div>
+    <div id="next"></div>
+    <div class="sync" id="sync" data-s="local"><span>Sauvegarde locale (ce navigateur)</span></div>
+  </header>
+  <nav class="tabs" role="tablist" id="tabs"></nav>
+  <main id="view"></main>
+</div>
+<script>
+/* ---------- CONTENU ---------- */
+const L=(id,title,why,res,check,note)=>({id,title,why,res,check,note});
+const R=(t,label,url)=>({t,label,url});
+const PHASES=[
+{id:"p0",code:"P0",short:"Atelier & méthode",title:"Poste de travail, Git et méthode",weeks:1,layer:"Infra",
+ goal:"Installer la même stack qu’en entreprise, versionner tout ce que tu produis et poser ta routine d’apprentissage.",
+ lessons:[
+  L("p0l1","Installer la stack locale","SQL Server 2025 Developer, SSMS 22, Visual Studio + extension SSIS, Power BI Desktop, VS Code, Git, Python.",[
+    R("doc","SQL Server — téléchargements (édition Developer)","https://www.microsoft.com/sql-server/sql-server-downloads"),
+    R("outil","Extension « SQL Server Integration Services Projects 2022+ »","https://marketplace.visualstudio.com/items?itemName=SSIS.MicrosoftDataToolsIntegrationServices"),
+    R("outil","Visual Studio Community","https://visualstudio.microsoft.com/vs/community/"),
+    R("doc","Installer SSMS","https://learn.microsoft.com/ssms/install/install"),
+    R("outil","Power BI Desktop","https://powerbi.microsoft.com/desktop/"),
+    R("doc","Nouveautés SSIS 2025 (64 bits seulement, service legacy déprécié)","https://learn.microsoft.com/sql/integration-services/what-s-new-in-integration-services-in-sql-server-2025")],
+   ["Pourquoi SQL Server Express ne suffit pas pour ce parcours ?","Quelle édition Developer (Standard ou Enterprise) reproduit les limites de ta prod ? Vérifie avec SELECT @@VERSION au travail.","Où se trouve le catalogue SSISDB et comment l’activer ?"],
+   "SQL Server 2025 propose deux éditions Developer gratuites : Standard Developer et Enterprise Developer. Prends celle qui correspond à la prod de ton entreprise."),
+  L("p0l2","Git et GitHub au quotidien","Commit, branche, merge, pull request, .gitignore. Tout le parcours vit dans un dépôt.",[
+    R("livre","Pro Git (FR), chapitres 1 à 3","https://git-scm.com/book/fr/v2"),
+    R("exo","Learn Git Branching","https://learngitbranching.js.org/?locale=fr_FR"),
+    R("cours","GitHub Skills","https://skills.github.com/")],
+   ["Différence entre merge et rebase ?","Que ne dois-tu jamais committer (mots de passe, chaînes de connexion, fichiers .user, bin/obj) ?","À quoi sert une pull request quand on travaille seul ?"]),
+  L("p0l3","Ta méthode d’apprentissage","Lis l’onglet Méthode : récupération active, répétition espacée, projets, journal.",[
+    R("outil","Anki (cartes espacées)","https://apps.ankiweb.net/"),
+    R("doc","The Learning Scientists — 6 stratégies","https://www.learningscientists.org/downloadable-materials")],
+   ["Pourquoi relire ses notes est moins efficace que se tester ?","Combien de sessions par semaine vises-tu, et quand exactement ?"])
+ ],
+ project:{id:"pj0",title:"data-lab : le dépôt socle",brief:"Un monorepo GitHub qui accueillera tous les projets. Il fixe tes conventions dès le départ.",
+  deliv:["Dépôt GitHub avec README (objectif, stack, schéma d’architecture en Mermaid)","Arborescence /database /ssis /powerbi /python /tests /docs /notes","Conventions écrites : schémas src, ods, dwh, dq, etl ; préfixes fct_, dim_, v_, usp_","Fichier .gitignore adapté à Visual Studio, SSIS et Power BI","Tableau GitHub Projects avec une carte par phase"],
+  stretch:["Modèles d’issue (bug, apprentissage)","Premier ADR (Architecture Decision Record) : pourquoi un monorepo"]}},
+
+{id:"p1",code:"P1",short:"T-SQL",title:"SQL Server et T-SQL",weeks:5,layer:"SSMS",
+ goal:"Écrire du T-SQL juste, lisible et rapide, et comprendre ce que fait le moteur.",
+ lessons:[
+  L("p1l1","Requêtes fondamentales","Ordre logique d’évaluation, jointures, anti-jointures, agrégations, logique à trois valeurs des NULL.",[
+    R("cours","Microsoft Learn — Get started querying with Transact-SQL","https://learn.microsoft.com/training/paths/get-started-querying-with-transact-sql/"),
+    R("livre","Itzik Ben-Gan — T-SQL Fundamentals (ch. 1 à 4)","https://www.microsoftpressstore.com/store/t-sql-fundamentals-9780138102104"),
+    R("cours","SQLServerCentral — séries Stairway (T-SQL DML)","https://www.sqlservercentral.com/stairways")],
+   ["Dans quel ordre le moteur évalue-t-il FROM, WHERE, GROUP BY, HAVING, SELECT, ORDER BY ?","Pourquoi WHERE col = NULL ne renvoie rien ?","Pourquoi NOT IN avec une sous-requête contenant un NULL renvoie zéro ligne ? Que faire à la place ?"]),
+  L("p1l2","CTE et fonctions de fenêtrage","ROW_NUMBER, RANK, LAG/LEAD, cumuls avec SUM OVER, cadres ROWS vs RANGE, dédoublonnage.",[
+    R("livre","T-SQL Fundamentals (ch. 5 à 7)","https://www.microsoftpressstore.com/store/t-sql-fundamentals-9780138102104"),
+    R("exo","DataLemur — exercices SQL","https://datalemur.com/"),
+    R("exo","LeetCode — SQL 50","https://leetcode.com/studyplan/top-sql-50/")],
+   ["Écris un dédoublonnage qui garde la ligne la plus récente par clé.","RANK vs DENSE_RANK vs ROW_NUMBER : exemple où les trois diffèrent ?","Pourquoi un cumul avec RANGE peut donner un résultat surprenant sur des dates en double ?"]),
+  L("p1l3","DDL, types et intégrité","Types (datetime2, decimal, nvarchar), contraintes PK/FK/CHECK/UNIQUE, IDENTITY vs SEQUENCE, schémas.",[
+    R("doc","Types de données SQL Server","https://learn.microsoft.com/sql/t-sql/data-types/data-types-transact-sql"),
+    R("doc","Contraintes et clés","https://learn.microsoft.com/sql/relational-databases/tables/primary-and-foreign-key-constraints")],
+   ["Pourquoi ne jamais stocker un montant en float ?","Clé naturelle ou clé de substitution : avantages de chacune ?","À quoi servent les schémas au-delà du rangement ?"]),
+  L("p1l4","Index et plans d’exécution","B-tree, index cluster et non cluster, INCLUDE, sargabilité, statistiques, lecture d’un plan réel.",[
+    R("livre","Use The Index, Luke (FR)","https://use-the-index-luke.com/fr"),
+    R("vidéo","Brent Ozar — How to Think Like the SQL Server Engine","https://www.brentozar.com/training/think-like-sql-server-engine/"),
+    R("cours","Stairway to SQL Server Indexes","https://www.sqlservercentral.com/stairways")],
+   ["Pourquoi WHERE YEAR(date_prelevement) = 2025 empêche un seek ? Réécris-le.","Seek vs scan : lequel est « mauvais » et quand ?","Que mesure SET STATISTICS IO ON ?"]),
+  L("p1l5","Procédures, transactions et erreurs","Procédures stockées, TRY/CATCH, THROW, XACT_ABORT, niveaux d’isolation, MERGE et ses pièges, SQL dynamique sûr.",[
+    R("doc","TRY…CATCH","https://learn.microsoft.com/sql/t-sql/language-elements/try-catch-transact-sql"),
+    R("doc","Niveaux d’isolation","https://learn.microsoft.com/sql/t-sql/statements/set-transaction-isolation-level-transact-sql"),
+    R("doc","sp_executesql (SQL dynamique paramétré)","https://learn.microsoft.com/sql/relational-databases/system-stored-procedures/sp-executesql-transact-sql")],
+   ["Que se passe-t-il dans une transaction sans SET XACT_ABORT ON quand une erreur survient ?","Quand préférer UPDATE puis INSERT séparés à MERGE ?","Comment éviter l’injection SQL en SQL dynamique ?"]),
+  L("p1l6","Pratique délibérée sur bases d’exemple","Un kata SQL par jour sur WideWorldImporters ou AdventureWorks, chronométré, sans aide les 20 premières minutes.",[
+    R("doc","WideWorldImporters","https://learn.microsoft.com/sql/samples/wide-world-importers-what-is"),
+    R("doc","AdventureWorks","https://learn.microsoft.com/sql/samples/adventureworks-install-configure")],
+   ["Sur WWI : top 3 clients par CA et par année, avec l’écart à l’année précédente.","Sur WWI : délai moyen entre commande et facture par mois."])
+ ],
+ project:{id:"pj1",title:"Base OLTP personnelle",brief:"Une base transactionnelle sur un sujet utile pour toi (par exemple ton budget à partir d’exports CSV bancaires, anonymisés).",
+  deliv:["Modèle entité-relation (dbdiagram.io ou draw.io) dans /docs","Scripts DDL versionnés, contraintes complètes, 3e forme normale","Jeu de données d’au moins 10 000 lignes (généré ou réel anonymisé)","15 requêtes analytiques dont 5 avec fonctions de fenêtrage","3 procédures stockées avec TRY/CATCH et transaction","1 index justifié par un plan avant/après (captures dans le README)"],
+  stretch:["Table temporelle (system-versioned) pour historiser une table","Script de génération de données en Python"]}},
+
+{id:"p2",code:"P2",short:"Modélisation",title:"Modélisation et architecture DWH",weeks:3,layer:"DWH",
+ goal:"Concevoir un entrepôt en étoile et justifier chaque couche entre la source et le rapport.",
+ lessons:[
+  L("p2l1","Couches d’une architecture décisionnelle","Source → landing/staging → ODS → DWH → modèle sémantique. ETL vs ELT, full vs différentiel.",[
+    R("livre","Reis & Housley — Fundamentals of Data Engineering","https://www.oreilly.com/library/view/fundamentals-of-data/9781098108298/"),
+    R("doc","Architecture médaillon (bronze, silver, gold)","https://learn.microsoft.com/fabric/onelake/onelake-medallion-lakehouse-architecture")],
+   ["À quoi sert l’ODS si le DWH existe déjà ?","Fais correspondre bronze, silver et gold à source, ODS et DWH.","Quand un chargement complet est-il plus raisonnable qu’un différentiel ?"]),
+  L("p2l2","Méthode Kimball en 4 étapes","Processus métier, grain, dimensions, faits. Matrice de bus et dimensions conformes.",[
+    R("doc","Kimball Group — techniques de modélisation dimensionnelle","https://www.kimballgroup.com/techniques/dimensional-modeling-techniques/"),
+    R("livre","Kimball & Ross — The Data Warehouse Toolkit, 3e éd. (ch. 1 à 3)","https://www.wiley.com/en-us/The+Data+Warehouse+Toolkit%3A+The+Definitive+Guide+to+Dimensional+Modeling%2C+3rd+Edition-p-9781118530801"),
+    R("vidéo","SQLBI — Introduction to Data Modeling for Power BI","https://www.sqlbi.com/p/introduction-to-data-modeling-for-power-bi-video-course/")],
+   ["Énonce en une phrase le grain d’une table de faits de résultats d’analyses de laboratoire.","Qu’est-ce qu’une dimension conforme et pourquoi elle compte ?"]),
+  L("p2l3","Faits et dimensions en détail","Faits transactionnels, instantanés périodiques, instantanés cumulatifs. Additif, semi-additif, non additif. Clés de substitution, membre inconnu, dimension date, junk, dégénérée, à rôles.",[
+    R("doc","Kimball — fact table techniques","https://www.kimballgroup.com/techniques/dimensional-modeling-techniques/")],
+   ["Pourquoi un niveau de stock est semi-additif ?","À quoi sert une ligne « inconnu » (clé -1) dans une dimension ?","Exemple de dimension à rôles dans un DWH de commandes ?"]),
+  L("p2l4","Dimensions à évolution lente (SCD)","Types 0, 1, 2 (aperçu de 3 et 6). ValidFrom, ValidTo, IsCurrent. Détection de changement par hash.",[
+    R("doc","Kimball — SCD types","https://www.kimballgroup.com/techniques/dimensional-modeling-techniques/"),
+    R("doc","MSSQLTips — SCD type 2 en SSIS","https://www.mssqltips.com/sqlservertip/5632/implement-a-slowly-changing-type-2-dimension-in-sql-server-integration-services--part-1/")],
+   ["Dans une dimension point de prélèvement, quel attribut mérite un type 2 et lequel un type 1 ?","Comment une ligne de faits retrouve la bonne version d’une dimension type 2 ?"]),
+  L("p2l5","Autres approches","Inmon, Data Vault, lakehouse. Savoir les situer, sans les implémenter.",[
+    R("carte","roadmap.sh — Data Engineer","https://roadmap.sh/data-engineer")],
+   ["Différence de philosophie entre Inmon et Kimball ?","Quand Data Vault a-t-il du sens ?"])
+ ],
+ project:{id:"pj2",title:"WideWorldImporters vers une étoile",brief:"Partir de la base OLTP WideWorldImporters, concevoir ton entrepôt, puis comparer avec la version DW officielle.",
+  deliv:["Matrice de bus (processus × dimensions) dans /docs","Deux étoiles (ventes et achats) avec dimensions conformes","DDL du schéma dwh avec clés de substitution et membre inconnu","Comparaison écrite avec WideWorldImportersDW : 3 différences et pourquoi","ADR sur le choix du grain"],
+  stretch:["Dimension date générée par script (fériés FR inclus)"]}},
+
+{id:"p3",code:"P3",short:"SSIS",title:"SSIS et orchestration",weeks:7,layer:"SSIS",
+ goal:"Construire des flux SSIS fiables, rejouables et déployés comme en production.",
+ lessons:[
+  L("p3l1","Fondamentaux SSIS","Projet, modèle de déploiement projet, flux de contrôle vs flux de données, gestionnaires de connexion, paramètres vs variables, expressions.",[
+    R("cours","Microsoft — tutoriel package ETL","https://learn.microsoft.com/sql/integration-services/ssis-how-to-create-an-etl-package"),
+    R("cours","Stairway to Integration Services (Andy Leonard), niveaux 1-2","https://www.sqlservercentral.com/stairways"),
+    R("doc","MSSQLTips — développer avec SSIS 2025","https://www.mssqltips.com/sqlservertip/11615/develop-ssis-packages-with-ssis-2025/")],
+   ["Différence entre paramètre et variable ?","Pourquoi le modèle de déploiement projet plutôt que package ?","OLE DB ou ADO.NET : lequel choisir en 2025 et pourquoi ?"]),
+  L("p3l2","Flux de données en profondeur","Buffers, transformations synchrones, asynchrones et bloquantes. Lookup (cache complet, sortie sans correspondance), Conditional Split, Derived Column, destination en chargement rapide.",[
+    R("doc","Transformations du flux de données","https://learn.microsoft.com/sql/integration-services/data-flow/transformations/integration-services-transformations"),
+    R("cours","Stairway to Integration Services, niveaux 6-9","https://www.sqlservercentral.com/stairways")],
+   ["Pourquoi trier en SQL plutôt qu’avec la transformation Sort ?","Que se passe-t-il avec un Lookup sans gestion des lignes sans correspondance ?"]),
+  L("p3l3","Chargements incrémentaux","Filigrane (date de modification), Lookup + HASHBYTES, Change Tracking, staging puis traitement ensembliste en procédure.",[
+    R("cours","Stairway to Integration Services, niveaux 3-5 (incremental loads)","https://www.sqlservercentral.com/stairways"),
+    R("doc","Change Tracking","https://learn.microsoft.com/sql/relational-databases/track-changes/about-change-tracking-sql-server")],
+   ["Comment détecter les suppressions à la source ?","Pourquoi l’OLE DB Command ligne à ligne est à éviter pour des mises à jour en masse ?","Où stocker le dernier filigrane chargé ?"]),
+  L("p3l4","SCD type 2 en pratique","Assistant SCD et ses limites, puis le pattern Lookup + procédure T-SQL.",[
+    R("doc","MSSQLTips — SCD2 sans l’assistant","https://www.mssqltips.com/sqlservertip/5632/implement-a-slowly-changing-type-2-dimension-in-sql-server-integration-services--part-1/")],
+   ["Écris de mémoire les 3 opérations d’un chargement SCD2 (expirer, insérer, type 1).","Pourquoi l’assistant SCD est lent sur de gros volumes ?"]),
+  L("p3l5","Robustesse et audit","Gestionnaires d’événements, journalisation SSISDB, table d’audit maison, redirection des lignes en erreur, idempotence, package maître.",[
+    R("doc","Gestionnaires d’événements SSIS","https://learn.microsoft.com/sql/integration-services/integration-services-ssis-event-handlers"),
+    R("cours","Stairway to Integration Services, niveaux 10-11 (événements, logging)","https://www.sqlservercentral.com/stairways")],
+   ["Ton package peut-il être relancé deux fois sans doublon ? Comment le prouves-tu ?","Que doit contenir une ligne d’audit d’exécution ?"]),
+  L("p3l6","C# dans SSIS : Script Task et Script Component","SSIS n’a pas de source REST/JSON native. C# sert à appeler une API, parser du JSON, coder une règle complexe.",[
+    R("doc","Script Component","https://learn.microsoft.com/sql/integration-services/extending-packages-scripting/data-flow-script-component/extending-the-data-flow-with-the-script-component"),
+    R("cours","Visite guidée de C#","https://learn.microsoft.com/dotnet/csharp/tour-of-csharp/"),
+    R("doc","HttpClient et System.Text.Json","https://learn.microsoft.com/dotnet/standard/serialization/system-text-json/overview")],
+   ["Script Task ou Script Component : lequel pour lire une API page par page et produire des lignes ?","Quelles alternatives à C# pour l’extraction d’API ?"],
+   "C# utile ici : variables, classes, boucles, try/catch, HttpClient, désérialisation JSON. Pas besoin d’aller plus loin pour SSIS."),
+  L("p3l7","Déploiement et planification","Catalogue SSISDB, environnements et variables d’environnement, rapports du catalogue, SQL Server Agent (jobs, étapes, planifications, alertes, Database Mail).",[
+    R("doc","Catalogue SSIS","https://learn.microsoft.com/sql/integration-services/catalog/ssis-catalog"),
+    R("doc","SQL Server Agent","https://learn.microsoft.com/ssms/agent/sql-server-agent"),
+    R("doc","Database Mail","https://learn.microsoft.com/sql/relational-databases/database-mail/database-mail")],
+   ["Comment changer de chaîne de connexion entre dev et prod sans toucher au package ?","Où lis-tu l’erreur exacte d’une exécution qui a échoué cette nuit ?"]),
+  L("p3l8","Génération par métadonnées avec Biml (avancé)","Générer des dizaines de packages de staging à partir d’une liste de tables.",[
+    R("outil","BimlExpress","https://www.varigence.com/BimlExpress"),
+    R("cours","Stairway to Biml","https://www.sqlservercentral.com/stairways")],
+   ["Quel problème Biml résout que des copier-coller de packages ne résolvent pas ?"])
+ ],
+ project:{id:"pj3",title:"Hub’Eau vers le DWH",brief:"Extraction hebdomadaire de l’API Qualité de l’eau potable pour un département, jusqu’à un entrepôt en étoile, avec le même découpage qu’en entreprise.",
+  deliv:["Extraction API vers landing (C# Script Component ou Python) avec pagination","ODS : données brutes typées et horodatées","DWH : fct_resultat_analyse, dim_commune, dim_parametre, dim_reseau, dim_date","Alimentation différentielle et SCD type 2 sur un attribut","Table d’audit (lignes lues, insérées, mises à jour, rejetées, durée)","Package maître qui orchestre les packages enfants","Déploiement au catalogue avec un environnement DEV","Job SQL Server Agent hebdomadaire qui tourne 4 semaines sans échec"],
+  stretch:["Second flux : API Hydrométrie ou Température des cours d’eau","Alerte e-mail sur échec via Database Mail"]}},
+
+{id:"p4",code:"P4",short:"Power BI & DAX",title:"Power BI et DAX",weeks:6,layer:"Rapport",
+ goal:"Construire des modèles sémantiques propres, des mesures DAX justes et des rapports qui servent une décision.",
+ lessons:[
+  L("p4l1","Power Query et M","Connexion SQL Server, query folding, paramètres, où transformer (au plus près de la source).",[
+    R("doc","Query folding","https://learn.microsoft.com/power-query/query-folding-basics"),
+    R("doc","Langage M","https://learn.microsoft.com/powerquery-m/")],
+   ["Comment vérifies-tu qu’une étape est repliée vers la source ?","Pourquoi faire les jointures dans le DWH plutôt que dans Power Query ?"]),
+  L("p4l2","Modèle sémantique en étoile","Cardinalités, sens de filtrage, table de dates marquée, clés masquées, dossiers d’affichage.",[
+    R("vidéo","SQLBI — Introduction to Data Modeling for Power BI","https://www.sqlbi.com/p/introduction-to-data-modeling-for-power-bi-video-course/"),
+    R("doc","Schéma en étoile dans Power BI","https://learn.microsoft.com/power-bi/guidance/star-schema")],
+   ["Pourquoi éviter les relations bidirectionnelles par défaut ?","Que se passe-t-il si la table de dates n’est pas marquée ?"]),
+  L("p4l3","DAX : contextes et CALCULATE","Mesures vs colonnes calculées, contexte de ligne vs contexte de filtre, CALCULATE et transition de contexte, itérateurs, VAR, REMOVEFILTERS, KEEPFILTERS.",[
+    R("vidéo","SQLBI — Introducing DAX","https://www.sqlbi.com/p/introducing-dax-video-course/"),
+    R("doc","DAX Guide","https://dax.guide/"),
+    R("livre","Russo & Ferrari — The Definitive Guide to DAX","https://www.sqlbi.com/books/the-definitive-guide-to-dax-2nd-edition/")],
+   ["Que fait CALCULATE à un contexte de ligne ?","SUM vs SUMX : quand le résultat diffère ?","Pourquoi une colonne calculée pour un ratio est presque toujours une erreur ?"]),
+  L("p4l4","DAX intermédiaire et patterns","Time intelligence, cumuls annuels, comparaisons N-1, classements, groupes de calcul, paramètres de champ.",[
+    R("doc","DAX Patterns","https://www.daxpatterns.com/"),
+    R("outil","Tabular Editor 2 (gratuit)","https://github.com/TabularEditor/TabularEditor")],
+   ["Écris de mémoire une mesure N-1 robuste aux années incomplètes.","Quand un groupe de calcul évite-t-il 30 mesures ?"]),
+  L("p4l5","Performance du modèle","DAX Studio (Server Timings), VertiPaq Analyzer, cardinalité des colonnes, Performance Analyzer, Best Practice Analyzer.",[
+    R("outil","DAX Studio","https://daxstudio.org/"),
+    R("outil","Règles Best Practice Analyzer","https://github.com/microsoft/Analysis-Services/tree/master/BestPracticeRules")],
+   ["Pourquoi une colonne datetime à la seconde alourdit le modèle ?","Moteur de formule vs moteur de stockage : lequel veux-tu faire travailler ?"]),
+  L("p4l6","Concevoir des rapports utiles","Une question par page, hiérarchie visuelle, bon type de graphique, info-bulles, extraction (drill-through), accessibilité.",[
+    R("livre","Cole Nussbaumer Knaflic — Storytelling with Data","https://www.storytellingwithdata.com/books"),
+    R("vidéo","Guy in a Cube","https://www.youtube.com/@GuyInACube"),
+    R("exo","Workout Wednesday (défis Power BI)","https://workout-wednesday.com/")],
+   ["Quelle décision ton rapport aide-t-il à prendre ? Écris-la avant de dessiner.","Quand un tableau vaut mieux qu’un graphique ?"]),
+  L("p4l7","Service Power BI","Espaces de travail, passerelle de données locale, actualisation planifiée et incrémentielle, RLS, pipelines de déploiement, applications.",[
+    R("doc","Passerelle de données locale","https://learn.microsoft.com/data-integration/gateway/service-gateway-onprem"),
+    R("doc","Actualisation incrémentielle","https://learn.microsoft.com/power-bi/connect-data/incremental-refresh-overview"),
+    R("doc","Sécurité au niveau des lignes (RLS)","https://learn.microsoft.com/fabric/security/service-admin-row-level-security")],
+   ["Mode standard vs mode personnel de la passerelle ?","Comment tester un rôle RLS dans Desktop ?"]),
+  L("p4l8","Préparer la PL-300","Parcours Microsoft Learn, évaluation pratique gratuite, révisions ciblées sur tes points faibles.",[
+    R("cours","PL-300 — Power BI Data Analyst Associate","https://learn.microsoft.com/credentials/certifications/data-analyst-associate/")],
+   ["Lesquels des 4 domaines de l’examen sont tes plus faibles d’après l’évaluation pratique ?"])
+ ],
+ project:{id:"pj4",title:"Rapport qualité de l’eau",brief:"Sur le DWH du projet P3 : un rapport qui répond à « l’eau de ma commune est-elle conforme, et comment ça évolue ? ».",
+  deliv:["Modèle en étoile propre, relations unidirectionnelles, table de dates marquée","Au moins 15 mesures DAX documentées (taux de conformité, N-1, rang des communes…)","Page synthèse, page détail, drill-through et page d’info-bulle","Rôle RLS par département (démo)","Audit DAX Studio et Best Practice Analyzer sans erreur","Enregistré en PBIP dans le dépôt","Publié avec actualisation planifiée via passerelle (si ta licence le permet)"],
+  stretch:["Trois défis Workout Wednesday","Groupe de calcul pour les comparaisons temporelles"]}},
+
+{id:"p5",code:"P5",short:"Qualité & CI/CD",title:"Qualité, tests et industrialisation",weeks:6,layer:"DataOps",
+ goal:"Traiter ton pipeline comme du logiciel : testé, versionné, déployé automatiquement, documenté.",
+ lessons:[
+  L("p5l1","Qualité des données","Complétude, unicité, validité, cohérence, fraîcheur. Rapprochement des comptages source/DWH. Schéma dq avec définitions et résultats de tests.",[
+    R("livre","Fundamentals of Data Engineering (chapitres qualité et sous-courants)","https://www.oreilly.com/library/view/fundamentals-of-data/9781098108298/")],
+   ["Cite 5 tests que tout chargement de faits devrait passer.","Un test qui échoue doit-il bloquer le chargement ou seulement alerter ? Dans quels cas ?"]),
+  L("p5l2","Tests unitaires SQL avec tSQLt","FakeTable, AssertEqualsTable, SpyProcedure. Tester une procédure de chargement en isolation.",[
+    R("outil","tSQLt","https://tsqlt.org/"),
+    R("doc","Redgate — Getting started with tSQLt","https://www.red-gate.com/simple-talk/databases/sql-server/t-sql-programming-sql-server/getting-started-testing-databases-with-tsqlt/")],
+   ["Pourquoi isoler la table avec FakeTable avant de tester une procédure ?","Quel test écris-tu en premier pour une procédure SCD2 ?"]),
+  L("p5l3","La base de données comme code","SQL Database Projects au format SDK (Microsoft.Build.Sql), .dacpac, SqlPackage, scripts pré/post-déploiement.",[
+    R("doc","SQL database projects","https://learn.microsoft.com/sql/tools/sql-database-projects/sql-database-projects"),
+    R("doc","SqlPackage","https://learn.microsoft.com/sql/tools/sqlpackage/sqlpackage")],
+   ["Que contient un .dacpac et que fait SqlPackage publish ?","Pourquoi un renommage de colonne demande un refactor log ?"]),
+  L("p5l4","Intégration continue avec GitHub Actions","Workflow YAML, build du .dacpac sur Linux, SQL Server en conteneur, déploiement puis tests tSQLt.",[
+    R("doc","GitHub Actions","https://docs.github.com/actions"),
+    R("outil","Azure/sql-action","https://github.com/Azure/sql-action"),
+    R("doc","SQL Server dans Docker","https://learn.microsoft.com/sql/linux/quickstart-install-connect-docker")],
+   ["Qu’est-ce qu’un service container dans un job GitHub Actions ?","Où ranges-tu les mots de passe du pipeline ?"]),
+  L("p5l5","SSIS en CI/CD","SSISBuild.exe et SSISDeploy.exe sans Visual Studio. Runner Windows auto-hébergé (ton PC), déploiement .ispac vers le catalogue.",[
+    R("doc","Outils DevOps SSIS autonomes","https://learn.microsoft.com/sql/integration-services/devops/ssis-devops-standalone"),
+    R("doc","Extension Azure DevOps pour SSIS","https://learn.microsoft.com/sql/integration-services/devops/ssis-devops-overview")],
+   ["Pourquoi le build SSIS demande-t-il un runner Windows ?","Qu’est-ce qu’un .ispac ?"]),
+  L("p5l6","Power BI comme code","Format PBIP et TMDL, diffs lisibles en pull request, Best Practice Analyzer lancé en CI.",[
+    R("doc","Projets Power BI (PBIP)","https://learn.microsoft.com/power-bi/developer/projects/projects-overview"),
+    R("outil","Tabular Editor 2 (CLI pour le BPA)","https://github.com/TabularEditor/TabularEditor")],
+   ["Que perd-on en versionnant un .pbix plutôt qu’un PBIP ?","Quelle règle BPA ferais-tu échouer en bloquant ?"]),
+  L("p5l7","Documentation et observabilité","README d’architecture, dictionnaire de données (propriétés étendues), lignage en Mermaid, runbook d’incident, fraîcheur affichée dans le rapport.",[
+    R("doc","Propriétés étendues","https://learn.microsoft.com/sql/relational-databases/system-stored-procedures/sp-addextendedproperty-transact-sql"),
+    R("doc","Diagrammes Mermaid sur GitHub","https://docs.github.com/get-started/writing-on-github/working-with-advanced-formatting/creating-diagrams")],
+   ["Que doit contenir un runbook pour qu’un collègue relance ton flux sans toi ?"])
+ ],
+ project:{id:"pj5",title:"Pipeline industrialisé",brief:"Reprendre Hub’Eau (P3 + P4) et l’amener au niveau d’une équipe pro.",
+  deliv:["Projet SQL (SDK) qui produit un .dacpac","Au moins 10 tests tSQLt sur les procédures de chargement","Tests dq exécutés en fin de job, résultats historisés","Page « Santé des données » dans le rapport","Workflow CI sur pull request : build, conteneur SQL, tests, BPA","Déploiement continu .dacpac + .ispac via runner auto-hébergé","Branche main protégée, CHANGELOG, runbook"],
+  stretch:["Badge de statut CI dans le README","Génération automatique du dictionnaire de données"]}},
+
+{id:"p6",code:"P6",short:"Python",title:"Python pour la data",weeks:4,layer:"Scripts",
+ goal:"Utiliser Python là où il apporte quelque chose : extraction d’API, scripts, tests. Peut se faire en parallèle de P3 à P5.",
+ lessons:[
+  L("p6l1","Structurer un projet Python","Environnement virtuel, uv, configuration par variables d’environnement, logging, arborescence src/.",[
+    R("outil","uv","https://docs.astral.sh/uv/"),
+    R("livre","Wes McKinney — Python for Data Analysis (en ligne)","https://wesmckinney.com/book/")],
+   ["Pourquoi ne jamais mettre une chaîne de connexion dans le code ?"]),
+  L("p6l2","Consommer une API proprement","Pagination, reprises avec backoff, limites de débit, sauvegarde brute horodatée.",[
+    R("cours","Real Python — requests","https://realpython.com/python-requests/")],
+   ["Comment rendre une extraction rejouable pour une date donnée ?","Que fais-tu d’une réponse HTTP 429 ?"]),
+  L("p6l3","pandas et alternatives","Nettoyage, types, jointures, agrégations. Quand le SQL est le meilleur outil.",[
+    R("cours","Kaggle Learn — pandas","https://www.kaggle.com/learn/pandas")],
+   ["Cite 2 traitements à faire en pandas et 2 à laisser à SQL Server."]),
+  L("p6l4","Écrire dans SQL Server depuis Python","Driver officiel mssql-python ou pyodbc avec fast_executemany, requêtes paramétrées.",[
+    R("outil","mssql-python (Microsoft)","https://github.com/microsoft/mssql-python"),
+    R("outil","pyodbc","https://github.com/mkleehammer/pyodbc")],
+   ["Pourquoi les requêtes paramétrées ?","Insertion ligne à ligne vs en lot : ordre de grandeur de l’écart ?"]),
+  L("p6l5","Qualité du code Python","pytest, ruff, annotations de type, pre-commit, CI.",[
+    R("doc","pytest","https://docs.pytest.org/"),
+    R("outil","Ruff","https://docs.astral.sh/ruff/")],
+   ["Comment tester un extracteur sans appeler la vraie API ?"])
+ ],
+ project:{id:"pj6",title:"Extracteur générique",brief:"Un outil en ligne de commande qui extrait une API vers la zone landing, appelé par SSIS ou par l’Agent.",
+  deliv:["CLI du type extract --source hubeau --since 2025-01-01","Sorties brutes horodatées, rejouables","Tests pytest avec réponses d’API simulées","Lint ruff et tests dans la CI","Appel depuis SSIS (Execute Process Task) ou un job Agent"],
+  stretch:["Ajout d’une deuxième source sans changer le cœur du code"]}},
+
+{id:"p7",code:"P7",short:"Capstone",title:"Projet final et ouverture",weeks:8,layer:"Portfolio",
+ goal:"Un projet complet, multi-sources, que tu peux montrer en entretien. Puis ouvrir vers Fabric et l’écosystème open source.",
+ lessons:[
+  L("p7l1","Cadrer le projet final","Choisir une question qui t’intéresse, des sources régulières, un utilisateur cible et une décision à éclairer.",[
+    R("carte","Onglet Données : idées de sources","#donnees")],
+   ["Quelle question précise ton rapport final doit-il trancher ?","Qui l’utiliserait, et à quelle fréquence ?"]),
+  L("p7l2","Microsoft Fabric","Lakehouse, pipelines, notebooks, Direct Lake. La suite cloud de la stack SSIS/SQL Server.",[
+    R("cours","DP-600 — Fabric Analytics Engineer","https://learn.microsoft.com/credentials/certifications/fabric-analytics-engineer-associate/"),
+    R("cours","DP-700 — Fabric Data Engineer","https://learn.microsoft.com/credentials/certifications/fabric-data-engineer-associate/")],
+   ["Que remplace un pipeline Fabric dans ton architecture SSIS ?","Direct Lake vs Import : différence clé ?"]),
+  L("p7l3","Écosystème open source","dbt, orchestrateurs (Kestra, Airflow), DuckDB. Pour élargir ton profil vers le data engineering.",[
+    R("cours","DataTalksClub — Data Engineering Zoomcamp (gratuit)","https://github.com/DataTalksClub/data-engineering-zoomcamp"),
+    R("carte","roadmap.sh — SQL","https://roadmap.sh/sql")],
+   ["Quel équivalent dbt a ton couple procédures + tests dq ?"])
+ ],
+ project:{id:"pj7",title:"Projet final : électricité et météo",brief:"Exemple : mix électrique et intensité carbone (éCO2mix) croisés avec la météo (Open-Meteo). Remplaçable par ton propre sujet.",
+  deliv:["Au moins 2 sources, dont une à fréquence infra-journalière","Architecture complète : landing, ODS, DWH, modèle sémantique","SCD, tests dq, tests tSQLt, CI/CD","Rapport avec une vraie conclusion (ex. heures les moins carbonées)","README portfolio : contexte, architecture, choix, limites","Vidéo de démonstration de 3 minutes"],
+  stretch:["Version Fabric du même pipeline","Article LinkedIn retraçant le projet"]}}
+];
+
+const MILESTONES=[
+ {id:"m1",after:"p1",k:"Fin P1",t:"SQL solide",d:"LeetCode SQL 50 terminé, 80 % des exercices « medium » résolus sans aide."},
+ {id:"m2",after:"p2",k:"Après P2 · optionnel",t:"DP-900 Azure Data Fundamentals",d:"Fondamentaux data Microsoft. Utile pour le vocabulaire, pas indispensable.",url:"https://learn.microsoft.com/credentials/certifications/azure-data-fundamentals/"},
+ {id:"m3",after:"p3",k:"Fin P3",t:"Premier flux en production perso",d:"Job Agent hebdomadaire, 4 semaines sans échec, audit consultable."},
+ {id:"m4",after:"p4",k:"Fin P4 · cible principale",t:"PL-300 Power BI Data Analyst",d:"La certification qui correspond à ton poste. Passe-la dès que l’évaluation pratique dépasse nettement le seuil.",url:"https://learn.microsoft.com/credentials/certifications/data-analyst-associate/"},
+ {id:"m5",after:"p5",k:"Fin P5",t:"CI verte sur pull request",d:"Une PR déclenche build, tests et BPA, et bloque si quelque chose casse."},
+ {id:"m6",after:"p7",k:"Fin P7",t:"Portfolio",d:"Trois dépôts propres avec README, dont le projet final et sa vidéo."},
+ {id:"m7",after:"p7",k:"Après P7 · selon ton orientation",t:"DP-600 ou DP-700",d:"DP-600 si tu vas vers l’analytics engineering, DP-700 si tu vas vers le data engineering.",url:"https://learn.microsoft.com/credentials/certifications/fabric-data-engineer-associate/"}
+];
+
+const SOURCES=[
+ {n:"Hub’Eau",u:"https://hubeau.eaufrance.fr/",f:"Hebdo à quotidienne",w:"Qualité de l’eau potable, cours d’eau, nappes, hydrométrie, température. API JSON/CSV paginée.",p:"Pagination, différentiel, faits de mesures, dimensions géo et paramètres"},
+ {n:"éCO2mix (ODRÉ)",u:"https://odre.opendatasoft.com/",f:"Infra-horaire",w:"Production et consommation d’électricité, intensité carbone par filière.",p:"Gros volumes, instantanés périodiques, agrégations temporelles"},
+ {n:"Open-Meteo",u:"https://open-meteo.com/",f:"Horaire",w:"Météo historique et prévisions sans clé d’API.",p:"Jointure temporelle avec d’autres faits, backfill historique"},
+ {n:"Prix des carburants",u:"https://www.prix-carburants.gouv.fr/rubrique/opendata/",f:"Instantané (flux continu)",w:"Prix par station, horaires, services.",p:"SCD type 2 (attributs de station qui changent), XML"},
+ {n:"DVF — valeurs foncières",u:"https://www.data.gouv.fr/fr/datasets/demandes-de-valeurs-foncieres/",f:"Semestrielle",w:"Toutes les ventes immobilières en France.",p:"Volumétrie (millions de lignes), index, partitionnement, qualité de données sale"},
+ {n:"Découpage administratif",u:"https://geo.api.gouv.fr/",f:"Rare",w:"Communes, départements, régions, codes INSEE, populations.",p:"Dimension géographique conforme réutilisée partout"},
+ {n:"Data Grand Lyon",u:"https://data.grandlyon.com/",f:"Temps réel à quotidienne",w:"Vélo’v, trafic, qualité de l’air, équipements.",p:"Extraction fréquente, faits d’instantanés, fraîcheur"},
+ {n:"SNCF Open Data",u:"https://ressources.data.sncf.com/",f:"Mensuelle",w:"Régularité des trains, fréquentation des gares.",p:"Faits mensuels, comparaisons N-1"},
+ {n:"Base Empreinte ADEME",u:"https://base-empreinte.ademe.fr/",f:"Annuelle",w:"Facteurs d’émission de référence.",p:"Référentiel versionné, dimension avec historique"},
+ {n:"data.gouv.fr",u:"https://www.data.gouv.fr/",f:"Variable",w:"Catalogue national de jeux de données et d’API.",p:"Trouver une source pour ton propre sujet"}
+];
+
+const METHOD=[
+ ["Se tester plutôt que relire","Avant de cocher une leçon, réponds aux questions « Vérifie » sans notes, à l’écrit ou à voix haute. Puis contrôle. L’effort de rappel est ce qui consolide la mémoire."],
+ ["Espacer les révisions","Chaque leçon cochée revient dans l’onglet Révisions à J+2, J+7, J+21 puis J+60. Pour la syntaxe (fonctions DAX, T-SQL), complète avec un paquet Anki que tu écris toi-même."],
+ ["Des sessions courtes et régulières","Cinq fois une heure vaut mieux qu’une fois cinq heures. Bloque des créneaux fixes dans ton agenda et note chaque session dans le Journal."],
+ ["Construire avant de se sentir prêt","Le projet n’est pas un examen de mémoire, c’est là que tu apprends. Coincé : cherche seul 20 minutes, puis cherche dans la doc, puis demande."],
+ ["Refaire sans le tutoriel","Après un tutoriel, recrée le package ou la mesure à partir d’une page blanche. Ce qui ne revient pas est ce qu’il faut revoir."],
+ ["Alterner les sujets","Une fois les bases posées, mélange SQL, DAX et SSIS dans la même semaine plutôt que des blocs d’un seul sujet. C’est plus inconfortable et plus durable."],
+ ["Expliquer avec tes mots","Une note courte par leçon dans /notes, écrite comme pour un collègue débutant. Publie un post par projet terminé : apprendre en public t’oblige à clarifier."],
+ ["Relier au travail","Chaque semaine, applique une notion au travail, ou rejoue chez toi un pattern vu au travail. Ne sors jamais de données ni de code de l’entreprise vers tes projets personnels."],
+ ["Utiliser l’IA comme tuteur","Demande-lui des explications, des quiz, des revues de ton code. Écris toi-même le code des exercices, sinon tu n’apprends rien."]
+];
+
+/* ---------- ÉTAT ---------- */
+const LS_KEY="atelier-pipeline-bi-v1", UI_KEY="atelier-pipeline-bi-ui";
+const INTERVALS=[2,7,21,60];
+const LESSONS=PHASES.flatMap(p=>p.lessons.map(l=>Object.assign({phase:p},l)));
+const PROJECTS=PHASES.map(p=>Object.assign({phase:p},p.project));
+function blank(){return {v:1,updatedAt:0,done:{},deliv:{},projDone:{},repos:{},log:[]}}
+function normalize(s){const b=blank();s=s&&typeof s==="object"?s:{};for(const k of Object.keys(b)){if(s[k]==null)s[k]=b[k]}if(!Array.isArray(s.log))s.log=[];return s}
+function clone(o){return JSON.parse(JSON.stringify(o))}
+function loadLocal(){try{const s=localStorage.getItem(LS_KEY);if(s)return normalize(JSON.parse(s))}catch(e){}return blank()}
+function saveLocal(){try{localStorage.setItem(LS_KEY,JSON.stringify(state))}catch(e){}}
+let state=loadLocal();
+let ui={tab:"parcours",phase:"p0",open:{}};
+try{const u=JSON.parse(localStorage.getItem(UI_KEY)||"null");if(u)ui=Object.assign(ui,u)}catch(e){}
+if(/^#donnees$/.test(location.hash))ui.tab="donnees";
+function saveUi(){try{localStorage.setItem(UI_KEY,JSON.stringify(ui))}catch(e){}}
+
+/* dates */
+function today(){const d=new Date();return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0")}
+function addDays(iso,n){const d=new Date(iso+"T12:00:00");d.setDate(d.getDate()+n);return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0")}
+function fmt(iso){if(!iso)return"";const d=new Date(iso+"T12:00:00");return d.toLocaleDateString("fr-FR",{day:"numeric",month:"short"})}
+function esc(s){return String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]))}
+
+/* ---------- SYNCHRO ---------- */
+const remote={ref:null,writing:false,pending:false,timer:null};
+function setSync(s){const el=document.getElementById("sync");el.dataset.s=s;el.lastElementChild.textContent=s==="cloud"?"Synchronisé sur ton compte":s==="error"?"Synchro en échec, sauvegarde locale":"Sauvegarde locale (ce navigateur)"}
+function persist(){state.updatedAt=Date.now();saveLocal();render();if(remote.ref){clearTimeout(remote.timer);remote.timer=setTimeout(flush,700)}}
+async function flush(){if(!remote.ref)return;if(remote.writing){remote.pending=true;return}remote.writing=true;
+ try{await remote.ref.set(clone(state));setSync("cloud")}
+ catch(e){if(e&&(e.code==="invalid_argument"||e.code==="not_granted"||e.code==="revoked")){remote.ref=null;setSync("local")}else setSync("error")}
+ remote.writing=false;if(remote.pending){remote.pending=false;flush()}}
+async function initRemote(){
+ if(!window.claude||typeof window.claude.use!=="function"){setSync("local");return}
+ try{
+  const [db,user]=await Promise.all([window.claude.use("db"),window.claude.use("user")]);
+  if(!db||!user){setSync("local");return}
+  const id=await user.id(); if(!id){setSync("local");return}
+  const ref=db.doc("data/users/"+id+"/progress");
+  const snap=await ref.get();
+  const remoteAt=snap.exists?(snap.data().updatedAt||0):0;
+  if(snap.exists&&remoteAt>(state.updatedAt||0)){state=normalize(clone(snap.data()));saveLocal();render()}
+  remote.ref=ref;
+  if(state.updatedAt>remoteAt)flush(); else setSync("cloud");
+  ref.onSnapshot(s=>{if(!s.exists||s.metadata.hasPendingWrites)return;const d=s.data();if((d.updatedAt||0)>(state.updatedAt||0)){state=normalize(clone(d));saveLocal();render()}},()=>{});
+ }catch(e){setSync("local")}
+}
+
+/* ---------- CALCULS ---------- */
+function phaseStats(p){const n=p.lessons.length+1;let d=p.lessons.filter(l=>state.done[l.id]).length;if(state.projDone[p.project.id])d++;return {d,n,pct:Math.round(d/n*100)}}
+function dueList(){const t=today();return LESSONS.filter(l=>{const x=state.done[l.id];return x&&x.next&&x.next<=t}).sort((a,b)=>state.done[a.id].next.localeCompare(state.done[b.id].next))}
+function upcoming(){const t=today();return LESSONS.filter(l=>{const x=state.done[l.id];return x&&x.next&&x.next>t}).sort((a,b)=>state.done[a.id].next.localeCompare(state.done[b.id].next)).slice(0,6)}
+function nextStep(){for(const p of PHASES){for(const l of p.lessons)if(!state.done[l.id])return {kind:"lesson",p,l};if(!state.projDone[p.project.id])return {kind:"project",p}}return null}
+function totalMinutes(){return state.log.reduce((a,e)=>a+(+e.min||0),0)}
+
+/* ---------- ACTIONS ---------- */
+function toggleLesson(id,on){if(on){const t=today();state.done[id]={at:t,stage:0,next:addDays(t,INTERVALS[0])}}else delete state.done[id];persist()}
+function review(id,ok){const x=state.done[id];if(!x)return;const t=today();if(ok){const s=x.stage+1;x.stage=s;x.next=s<INTERVALS.length?addDays(t,INTERVALS[s]):null}else{x.stage=0;x.next=addDays(t,1)}x.last=t;persist()}
+
+/* ---------- RENDU ---------- */
+function render(){renderStats();renderNext();renderTabs();renderView()}
+function renderStats(){
+ const ld=LESSONS.filter(l=>state.done[l.id]).length, pd=PROJECTS.filter(p=>state.projDone[p.id]).length;
+ const tot=LESSONS.length+PROJECTS.length, pct=Math.round((ld+pd)/tot*100), due=dueList().length, h=String(Math.round(totalMinutes()/6)/10).replace(".",",");
+ document.getElementById("stats").innerHTML=
+ `<div class="summary num"><span><b>${pct} %</b> du parcours</span><span><b>${ld}</b>/${LESSONS.length} leçons</span><span><b>${pd}</b>/${PROJECTS.length} projets</span><span class="${due?"due":""}"><b>${due}</b> révision${due>1?"s":""} due${due>1?"s":""}</span><span><b>${h} h</b> au journal</span></div>
+  <div class="progress"><span style="width:${pct}%"></span></div>`;
+}
+function renderNext(){
+ const n=nextStep(), el=document.getElementById("next");
+ if(!n){el.innerHTML=`<p class="next">Tout est coché. Continue les révisions et vise DP-600 ou DP-700.</p>`;return}
+ const label=n.kind==="lesson"?n.l.title:"projet « "+n.p.project.title+" »";
+ el.innerHTML=`<p class="next">Prochaine étape (${n.p.code}) : <button class="linkbtn" data-act="goto" data-phase="${n.p.id}" data-item="${n.kind==="lesson"?n.l.id:n.p.project.id}">${esc(label)}</button></p>`;
+}
+const TABS=[["parcours","Parcours"],["revisions","Révisions"],["jalons","Jalons"],["methode","Méthode"],["donnees","Données"],["journal","Journal"]];
+function renderTabs(){const due=dueList().length;document.getElementById("tabs").innerHTML=TABS.map(([k,l])=>`<button role="tab" aria-selected="${ui.tab===k}" data-act="tab" data-tab="${k}">${l}${k==="revisions"&&due?`<span class="n">${due}</span>`:""}</button>`).join("")}
+function renderView(){document.getElementById("view").innerHTML=({parcours:viewParcours,revisions:viewRevisions,jalons:viewJalons,methode:viewMethode,donnees:viewDonnees,journal:viewJournal})[ui.tab]()}
+
+function viewParcours(){
+ const nav=PHASES.map(p=>{const s=phaseStats(p);return `<li class="${s.d===s.n?"ok":""}"><button data-act="phase" data-phase="${p.id}" aria-current="${ui.phase===p.id}"><span>${p.code} ${esc(p.short)}</span><span class="pc num">${s.pct} %</span></button></li>`}).join("");
+ const p=PHASES.find(x=>x.id===ui.phase)||PHASES[0];
+ const total=PHASES.reduce((a,x)=>a+x.weeks,0);
+ return `<div class="cols">
+  <ul class="phases">${nav}<li class="muted small" style="padding-top:10px">≈ ${total} semaines à 6–8 h/sem.</li></ul>
+  <section>
+   <div class="ph-head"><span class="meta">${p.code} · ${esc(p.layer)} · environ ${p.weeks} semaine${p.weeks>1?"s":""}</span><h2>${esc(p.title)}</h2><p class="muted">${esc(p.goal)}</p></div>
+   <ul class="lessons">${p.lessons.map((l,i)=>lessonHtml(l,p,i)).join("")}</ul>
+   ${projectHtml(p)}
+  </section></div>`;
+}
+function lessonHtml(l,p,i){
+ const d=state.done[l.id], open=!!ui.open[l.id];
+ const rv=d?(d.next?`Fait le ${fmt(d.at)}, révision le ${fmt(d.next)}`:`Fait le ${fmt(d.at)}, acquis`):"";
+ return `<li class="lesson ${d?"done":""}" id="it-${l.id}">
+  <div class="lrow"><input type="checkbox" id="cb-${l.id}" data-act="lesson" data-id="${l.id}" ${d?"checked":""}>
+   <div><label for="cb-${l.id}">${p.code.slice(1)}.${i+1} ${esc(l.title)}</label><p class="why">${esc(l.why)}</p>${rv?`<p class="rv">${rv}</p>`:""}</div>
+   <button class="linkbtn small" data-act="open" data-id="${l.id}" aria-expanded="${open}">${open?"Fermer":"Détails"}</button></div>
+  ${open?`<div class="detail"><div><h4>Ressources</h4><ul>${l.res.map(r=>`<li><a href="${esc(r.url)}" ${r.url.startsWith("#")?`data-act="tab" data-tab="donnees"`:`target="_blank" rel="noopener"`}>${esc(r.label)}</a> <span class="kind">(${esc(r.t)})</span></li>`).join("")}</ul>${l.note?`<p class="note">${esc(l.note)}</p>`:""}</div>
+   <div><h4>Vérifie ta compréhension, sans notes</h4><ol>${l.check.map(q=>`<li>${esc(q)}</li>`).join("")}</ol></div></div>`:""}
+ </li>`;
+}
+function projectHtml(p){
+ const pr=p.project, done=!!state.projDone[pr.id];
+ const nd=pr.deliv.filter((_,i)=>state.deliv[pr.id+"-"+i]).length;
+ return `<section class="project" id="it-${pr.id}">
+  <span class="meta">Projet ${p.code} · ${nd}/${pr.deliv.length} livrables${done?" · terminé":""}</span>
+  <h3>${esc(pr.title)}</h3><p>${esc(pr.brief)}</p>
+  <ul class="checks">${pr.deliv.map((d,i)=>{const k=pr.id+"-"+i,on=!!state.deliv[k];return `<li><label><input type="checkbox" data-act="deliv" data-id="${k}" ${on?"checked":""}><span class="${on?"on":""}">${esc(d)}</span></label></li>`}).join("")}</ul>
+  <p class="muted small">Pour aller plus loin : ${pr.stretch.map(esc).join(" ; ")}.</p>
+  <div class="field"><label for="repo-${pr.id}">Lien GitHub du projet</label><input id="repo-${pr.id}" type="url" placeholder="https://github.com/…" value="${esc(state.repos[pr.id]||"")}" data-act="repo" data-id="${pr.id}"></div>
+  <div class="row"><button class="btn ${done?"alt":""}" data-act="projdone" data-id="${pr.id}">${done?"Rouvrir le projet":"Marquer le projet terminé"}</button>${state.repos[pr.id]?`<a href="${esc(state.repos[pr.id])}" target="_blank" rel="noopener">Ouvrir le dépôt</a>`:""}</div>
+ </section>`;
+}
+function viewRevisions(){
+ const due=dueList(), up=upcoming();
+ const list=due.length?`<ul class="list">${due.map(l=>`<li><span class="meta">${l.phase.code} ${esc(l.phase.short)} · révision ${state.done[l.id].stage+1} sur ${INTERVALS.length}</span><strong>${esc(l.title)}</strong><ol>${l.check.map(q=>`<li>${esc(q)}</li>`).join("")}</ol>
+   <div class="row" style="margin-top:6px"><button class="btn" data-act="rev" data-id="${l.id}" data-ok="1">Je savais</button><button class="btn alt" data-act="rev" data-id="${l.id}" data-ok="0">À revoir demain</button></div></li>`).join("")}</ul>`
+  :`<p class="muted">Aucune révision due aujourd’hui.</p>`;
+ return `<p class="intro">Réponds aux questions sans notes avant de cliquer. « Je savais » repousse la révision suivante (2, 7, 21 puis 60 jours). « À revoir » la remet à demain et repart du début.</p>${list}
+  ${up.length?`<h3 style="margin-top:28px">À venir</h3><ul class="list" style="margin-top:8px">${up.map(l=>`<li><span>${esc(l.title)} <span class="muted small">· ${fmt(state.done[l.id].next)}</span></span></li>`).join("")}</ul>`:""}`;
+}
+function viewJalons(){
+ const reached=m=>{const p=PHASES.find(x=>x.id===m.after);const s=phaseStats(p);return s.d===s.n};
+ return `<p class="intro">Les certifications valident, les projets prouvent. Un jalon est atteint quand la phase associée est terminée ; pour une certification, c’est le moment de la passer. SSIS n’a plus de certification : tes projets P3 et P5 en tiennent lieu.</p>
+  <ul class="list">${MILESTONES.map(m=>`<li><span class="meta">${esc(m.k)}</span><strong>${esc(m.t)}</strong><p class="muted">${esc(m.d)}</p><span class="status ${reached(m)?"ok":""}">${reached(m)?"Atteint":"Pas encore"}${m.url?` · <a href="${m.url}" target="_blank" rel="noopener">page officielle</a>`:""}</span></li>`).join("")}</ul>`;
+}
+function viewMethode(){
+ return `<p class="intro">Inspiré de The Odin Project : des ressources choisies plutôt qu’un cours unique, des questions à chaque leçon, un projet par phase. Les principes ci-dessous sont ceux que la recherche sur l’apprentissage soutient le mieux.</p>
+  <ol class="list" style="list-style:decimal;padding-left:20px">${METHOD.map(m=>`<li style="display:list-item"><strong>${esc(m[0])}.</strong> <span class="muted">${esc(m[1])}</span></li>`).join("")}</ol>
+  <h3 style="margin-top:28px">Déroulé d’une leçon</h3>
+  <ol style="padding-left:20px;margin:8px 0 0;max-width:65ch"><li>Une ressource, pas toutes.</li><li>Pratique tout de suite dans SSMS, Visual Studio ou Power BI.</li><li>Réponds aux questions sans notes.</li><li>Écris une note courte dans /notes, puis coche.</li></ol>
+  <h3 style="margin-top:28px">Rythme</h3><p class="muted" style="max-width:65ch;margin-top:6px">6 à 8 heures par semaine en 4 ou 5 sessions. P6 (Python) peut se faire en parallèle de P3 à P5. Ce que tu appliques au travail compte : note-le au journal.</p>`;
+}
+function viewDonnees(){
+ return `<p class="intro">Sources ouvertes pour les projets, avec le pattern que chacune oblige à pratiquer.</p>
+  <div class="tw"><table><thead><tr><th>Source</th><th>Contenu</th><th>Fréquence</th><th>Pour apprendre</th></tr></thead><tbody>
+  ${SOURCES.map(s=>`<tr><td><a href="${s.u}" target="_blank" rel="noopener">${esc(s.n)}</a></td><td>${esc(s.w)}</td><td class="muted">${esc(s.f)}</td><td class="muted">${esc(s.p)}</td></tr>`).join("")}</tbody></table></div>`;
+}
+function viewJournal(){
+ const t=today();
+ const weeks=[];for(let i=19;i>=0;i--){const end=addDays(t,-7*i),start=addDays(end,-6);const m=state.log.filter(e=>e.d>=start&&e.d<=end).reduce((a,e)=>a+(+e.min||0),0);weeks.push({start,m})}
+ const lvl=m=>m===0?"":m<180?"l1":m<360?"l2":"l3";
+ const rows=state.log.slice().sort((a,b)=>b.d.localeCompare(a.d));
+ return `<form class="logform" id="logform">
+   <div class="field"><label for="lg-d">Date</label><input id="lg-d" type="date" value="${t}" required></div>
+   <div class="field"><label for="lg-m">Minutes</label><input id="lg-m" type="number" min="5" max="600" step="5" value="60" required></div>
+   <div class="field wide" style="max-width:none"><label for="lg-t">Ce que j’ai fait ou compris</label><input id="lg-t" type="text" maxlength="200" placeholder="Ex. Lookup en cache complet sur dim_commune" required></div>
+   <div class="wide"><button class="btn" type="submit">Ajouter</button></div></form>
+  <p class="muted small">20 dernières semaines (plus foncé : plus de 3 h, plus de 6 h)</p>
+  <div class="weeks">${weeks.map(w=>`<span class="${lvl(w.m)}" title="Semaine du ${fmt(w.start)} : ${w.m} min"></span>`).join("")}</div>
+  ${rows.length?`<div class="tw" style="margin-top:18px"><table><thead><tr><th>Date</th><th>Durée</th><th>Note</th><th></th></tr></thead><tbody>${rows.map(e=>`<tr><td class="num">${fmt(e.d)}</td><td class="num">${e.min} min</td><td style="overflow-wrap:anywhere">${esc(e.txt)}</td><td class="del"><button class="x" data-act="dellog" data-id="${e.id}" aria-label="Supprimer">Supprimer</button></td></tr>`).join("")}</tbody></table></div>`:`<p class="muted" style="margin-top:18px">Aucune session notée.</p>`}`;
+}
+/* ---------- ÉVÉNEMENTS ---------- */
+document.addEventListener("click",e=>{
+ const b=e.target.closest("[data-act]");if(!b)return;const a=b.dataset.act;
+ if(a==="tab"){e.preventDefault();ui.tab=b.dataset.tab;saveUi();render();return}
+ if(a==="phase"){ui.phase=b.dataset.phase;saveUi();render();return}
+ if(a==="open"){ui.open[b.dataset.id]=!ui.open[b.dataset.id];saveUi();renderView();return}
+ if(a==="goto"){ui.tab="parcours";ui.phase=b.dataset.phase;ui.open[b.dataset.item]=true;saveUi();render();const el=document.getElementById("it-"+b.dataset.item);if(el)el.scrollIntoView({behavior:"smooth",block:"start"});return}
+ if(a==="projdone"){const id=b.dataset.id;if(state.projDone[id])delete state.projDone[id];else state.projDone[id]=today();persist();return}
+ if(a==="rev"){review(b.dataset.id,b.dataset.ok==="1");return}
+ if(a==="dellog"){state.log=state.log.filter(x=>x.id!==b.dataset.id);persist();return}
+});
+document.addEventListener("change",e=>{
+ const t=e.target;const a=t.dataset&&t.dataset.act;if(!a)return;
+ if(a==="lesson")toggleLesson(t.dataset.id,t.checked);
+ else if(a==="deliv"){if(t.checked)state.deliv[t.dataset.id]=true;else delete state.deliv[t.dataset.id];persist()}
+ else if(a==="repo"){const v=t.value.trim();if(v&&!/^https?:\/\//i.test(v)){t.setCustomValidity("Le lien doit commencer par https://");t.reportValidity();return}t.setCustomValidity("");if(v)state.repos[t.dataset.id]=v;else delete state.repos[t.dataset.id];persist()}
+});
+document.addEventListener("submit",e=>{
+ if(e.target.id!=="logform")return;e.preventDefault();
+ const d=document.getElementById("lg-d").value,m=+document.getElementById("lg-m").value,txt=document.getElementById("lg-t").value.trim();
+ if(!d||!m||!txt)return;
+ state.log.push({id:"l"+Date.now().toString(36)+Math.random().toString(36).slice(2,6),d,min:m,txt});
+ if(state.log.length>1500)state.log=state.log.slice(-1500);
+ persist();
+});
+
+render();
+initRemote();
+</script>
+
+</body>
+</html>
